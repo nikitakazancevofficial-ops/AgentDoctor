@@ -1,0 +1,35 @@
+---
+name: Bug Report
+about: Report a bug in AgentDoctor
+title: "[Bug]: "
+labels: ["bug"]
+assignees: []
+---
+
+**Describe the bug**
+A clear and concise description of what the bug is.
+
+**To Reproduce**
+Steps to reproduce the behavior:
+1. Run `agentdoctor ...`
+2. ...
+
+**Expected behavior**
+What you expected to happen.
+
+**Actual behavior**
+What actually happened.
+
+**Environment**
+- OS: [e.g., Windows 11, Ubuntu 22.04, macOS 14]
+- Python version: [e.g., 3.12.0]
+- AgentDoctor version: [e.g., 0.1.0]
+
+**Sanitized report**
+Paste the output of `agentdoctor --json` here.
+
+> **IMPORTANT:** DO NOT paste API keys, tokens, passwords, or any secrets.
+> AgentDoctor redacts secrets automatically, but verify before pasting.
+
+**Additional context**
+Add any other context about the problem here.

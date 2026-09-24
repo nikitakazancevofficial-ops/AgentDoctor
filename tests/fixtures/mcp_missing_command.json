@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "missing-cmd": {
+      "command": "does-not-exist-ever-xyz",
+      "args": ["--arg1", "value1"]
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "broken": {
+      "command": "nonexistent-command-xyz123",
+      "args": ["--some-arg"],
+    }
+  }
+}

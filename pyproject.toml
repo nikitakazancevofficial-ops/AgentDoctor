@@ -1,0 +1,94 @@
+[project]
+name = "agentdoctor"
+version = "0.1.0"
+description = "Diagnose broken AI coding environments in one command."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [
+    {name = "AgentDoctor Contributors"}
+]
+keywords = ["diagnostics", "ai", "coding-agents", "mcp", "cli"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Topic :: Software Development :: Debuggers",
+    "Topic :: System :: System Shells",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "typer>=0.15.0",
+    "rich>=13.0.0",
+    "psutil>=5.9.0",
+    "pydantic>=2.0.0",
+    "httpx>=0.27.0",
+    "platformdirs>=4.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+]
+
+[project.scripts]
+agentdoctor = "agentdoctor.cli:app"
+
+[project.urls]
+"Homepage" = "https://github.com/agentdoctor/agentdoctor"
+"Repository" = "https://github.com/agentdoctor/agentdoctor"
+"Bug Tracker" = "https://github.com/agentdoctor/agentdoctor/issues"
+"Documentation" = "https://github.com/agentdoctor/agentdoctor#readme"
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "RUF"]
+ignore = ["E501", "SIM108"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unreachable = true
+warn_no_return = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.pytest_cov]
+source = ["agentdoctor"]
+branch = true
