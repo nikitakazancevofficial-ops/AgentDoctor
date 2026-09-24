@@ -135,8 +135,8 @@ AI coding tools (Claude Code, Codex CLI, Gemini CLI, Ollama, MCP servers, etc.) 
 ### From source (recommended for v0.1.0)
 
 ```bash
-git clone https://github.com/agentdoctor/agentdoctor.git
-cd agentdoctor
+git clone https://github.com/nikitakazancevofficial-ops/AgentDoctor.git
+cd AgentDoctor
 pip install -e ".[dev]"
 ```
 
