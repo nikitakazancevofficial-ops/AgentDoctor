@@ -15,6 +15,7 @@ from agentdoctor import __version__
 from agentdoctor.core.models import DEFAULT_TIMEOUT, CheckResult, CheckSeverity, CheckStatus, HealthScore, SystemInfo
 from agentdoctor.core.redaction import sanitize_check_result
 from agentdoctor.core.registry import get_registered_checks
+from agentdoctor.core.runner import configure_timeout as configure_command_timeout
 from agentdoctor.knowledge.issues import get_issue_info
 from agentdoctor.providers.registry import get_providers
 from agentdoctor.renderers.json_renderer import render_json
@@ -65,7 +66,6 @@ def _collect_results(
     categories: list[str] | None = None, timeout: float = DEFAULT_TIMEOUT
 ) -> tuple[dict[str, list[CheckResult]], HealthScore, SystemInfo]:
     """Run requested checks in a deterministic order."""
-    del timeout  # Individual checks own their documented command/network timeout.
     for module_name in (
         "docker",
         "git",
@@ -82,6 +82,10 @@ def _collect_results(
     ):
         import_module(f"agentdoctor.checks.{module_name}")
     from agentdoctor.checks import system
+    from agentdoctor.checks.network import configure_timeout as configure_network_timeout
+
+    configure_command_timeout(timeout)
+    configure_network_timeout(timeout)
 
     results_by_category: dict[str, list[CheckResult]] = {}
     health = HealthScore()
@@ -225,7 +229,9 @@ def doctor(
     json_output: bool = typer.Option(False, "--json", help="Output JSON."),
     ci: bool = typer.Option(False, "--ci", help="Output stable CI text."),
     output: str | None = typer.Option(None, "--output", "-O", help="Write a JSON or Markdown report."),
-    timeout: float = typer.Option(DEFAULT_TIMEOUT, "--timeout", "-t", help="Check timeout in seconds."),
+    timeout: float = typer.Option(
+        DEFAULT_TIMEOUT, "--timeout", "-t", min=0.1, help="Maximum command and HTTP timeout."
+    ),
 ) -> None:
     """Run a full diagnostic scan (alias for ``agentdoctor``)."""
     _run_diagnostics(json_output=json_output, ci=ci, output=output, timeout=timeout)
@@ -236,7 +242,9 @@ def check(
     check_type: str = typer.Argument(..., help="Diagnostic category to run."),
     json_output: bool = typer.Option(False, "--json", help="Output JSON."),
     debug: bool = typer.Option(False, "--debug", "-d", help="Include diagnostic exception details."),
-    timeout: float = typer.Option(DEFAULT_TIMEOUT, "--timeout", "-t", help="Check timeout in seconds."),
+    timeout: float = typer.Option(
+        DEFAULT_TIMEOUT, "--timeout", "-t", min=0.1, help="Maximum command and HTTP timeout."
+    ),
 ) -> None:
     """Run only one diagnostic category."""
     global _g_debug
@@ -302,7 +310,9 @@ def callback(
     json_output: bool = typer.Option(False, "--json", help="Output JSON."),
     ci: bool = typer.Option(False, "--ci", help="Output stable CI text."),
     output: str | None = typer.Option(None, "--output", "-O", help="Write a JSON or Markdown report."),
-    timeout: float = typer.Option(DEFAULT_TIMEOUT, "--timeout", "-t", help="Check timeout in seconds."),
+    timeout: float = typer.Option(
+        DEFAULT_TIMEOUT, "--timeout", "-t", min=0.1, help="Maximum command and HTTP timeout."
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output."),
     debug: bool = typer.Option(False, "--debug", "-d", help="Include diagnostic exception details."),
     only: str | None = typer.Option(None, "--only", "-o", help="Run only comma-separated categories."),

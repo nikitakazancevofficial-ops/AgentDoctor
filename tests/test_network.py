@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 
-from agentdoctor.checks.network import _check_tcp, check_network
+from agentdoctor.checks.network import _check_tcp, check_network, configure_timeout
 from agentdoctor.core.models import CheckStatus
 
 
@@ -22,6 +22,23 @@ def test_tcp_socket_is_closed() -> None:
         ok, _detail = _check_tcp("example.test", 443)
     assert ok
     socket_instance.__exit__.assert_called_once()
+
+
+def test_configured_timeout_caps_http_probe() -> None:
+    configure_timeout(0.2)
+    try:
+        response = MagicMock(status_code=200)
+        client = MagicMock()
+        client.__enter__.return_value = client
+        client.get.return_value = response
+        with (
+            patch("agentdoctor.checks.network.socket.getaddrinfo", side_effect=lambda *_args: _mock_dns()),
+            patch("agentdoctor.checks.network.httpx.Client", return_value=client) as client_factory,
+        ):
+            check_network()
+        assert all(call.kwargs["timeout"] == 0.2 for call in client_factory.call_args_list)
+    finally:
+        configure_timeout(3.0)
 
 
 def test_https_uses_certificate_verification_and_classifies_statuses() -> None:

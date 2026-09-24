@@ -1,9 +1,21 @@
 """Tests for command runner."""
 
-from agentdoctor.core.runner import run_command, run_command_sync
+from agentdoctor.core.runner import configure_timeout, run_command, run_command_sync
 
 
 class TestRunCommandSync:
+    def test_configured_timeout_caps_a_longer_check_timeout(self):
+        configure_timeout(0.1)
+        try:
+            if __import__("sys").platform == "win32":
+                cmd = ["ping", "-n", "10", "127.0.0.1"]
+            else:
+                cmd = ["sleep", "10"]
+            result = run_command_sync(cmd, timeout=5)
+            assert result.timed_out
+        finally:
+            configure_timeout(None)
+
     def test_echo_command(self):
         result = run_command_sync(["python", "-c", "print('hello')"], timeout=5)
         assert result.success

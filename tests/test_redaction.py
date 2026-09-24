@@ -56,6 +56,19 @@ class TestRedactSecret:
         assert "abcdefghijklmnopqrstuvwxyz" not in result
         assert "[REDACTED]" in result
 
+    def test_redact_authorization_header_and_slack_token(self):
+        text = "Authorization: Basic synthetic-credential\nxoxb-1234567890-abcdefghij"
+        result = redact_secret(text)
+        assert "synthetic-credential" not in result
+        assert "1234567890-abcdefghij" not in result
+        assert "Authorization: [REDACTED]" in result
+
+    def test_redact_unterminated_private_key_block(self):
+        body = "PRIVATE-KEY-BODY-MUST-NOT-LEAK"
+        result = redact_secret(f"-----BEGIN PRIVATE KEY-----\n{body}")
+        assert body not in result
+        assert result == "[REDACTED PRIVATE KEY]"
+
     def test_redact_password_field(self):
         text = 'password = "super_secret_password_123"'
         result = redact_secret(text)
@@ -81,7 +94,7 @@ class TestRedactSecret:
     def test_redact_private_key_header(self):
         text = "-----BEGIN RSA PRIVATE KEY-----"
         result = redact_secret(text)
-        assert result == text  # A header alone is not a private-key block.
+        assert result == "[REDACTED PRIVATE KEY]"
 
     def test_redact_entire_private_key_block(self):
         body = "A" * 64
@@ -130,8 +143,7 @@ class TestRedactURL:
 class TestMaskToken:
     def test_mask_token_visible(self):
         result = mask_token("sk-proj-abcdefghijklmnopqrstuvwxyz", 4)
-        assert result.startswith("sk-p")
-        assert "..." in result
+        assert result == "[REDACTED]"
 
     def test_mask_token_short(self):
         result = mask_token("abc", 4)

@@ -9,9 +9,27 @@ from collections.abc import Sequence
 
 from agentdoctor.core.models import DEFAULT_TIMEOUT, CommandResult
 
+_timeout_cap: float | None = None
+
 
 class CommandTimeoutError(Exception):
     """Raised when a command exceeds its timeout."""
+
+
+def configure_timeout(timeout: float | None) -> None:
+    """Cap command timeouts for the current diagnostic invocation.
+
+    Individual checks can still request shorter deadlines; this setting never
+    lengthens a built-in check's timeout.
+    """
+    global _timeout_cap
+    if timeout is not None and timeout <= 0:
+        raise ValueError("timeout must be greater than zero")
+    _timeout_cap = timeout
+
+
+def _effective_timeout(timeout: float) -> float:
+    return min(timeout, _timeout_cap) if _timeout_cap is not None else timeout
 
 
 async def _run_async(
@@ -20,6 +38,7 @@ async def _run_async(
     cwd: str | None = None,
     env: dict[str, str] | None = None,
 ) -> CommandResult:
+    timeout = _effective_timeout(timeout)
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -83,6 +102,7 @@ def run_command_sync(
     env: dict[str, str] | None = None,
 ) -> CommandResult:
     """Run a command using subprocess with timeout (synchronous)."""
+    timeout = _effective_timeout(timeout)
     try:
         proc = subprocess.run(
             cmd,

@@ -205,7 +205,7 @@ agentdoctor explain MCP_COMMAND_001
 | `--no-color` | Disable colored output |
 | `--only <checks>` | Run only specific checks (comma-separated) |
 | `--skip <checks>` | Skip specific checks (comma-separated) |
-| `--timeout <s>` | Timeout for individual checks (default: 10s) |
+| `--timeout <s>` | Maximum timeout for built-in commands and HTTP probes (default: 10s) |
 | `--output <file>` | Write report to file (.json or .md) |
 | `--ci` | CI mode: stable, machine-readable output |
 

@@ -16,7 +16,16 @@ except ImportError:
     HAS_HTTPX = False
 
 
-HTTP_PROBE_TIMEOUT = min(DEFAULT_TIMEOUT, 3.0)
+MAX_HTTP_PROBE_TIMEOUT = min(DEFAULT_TIMEOUT, 3.0)
+HTTP_PROBE_TIMEOUT = MAX_HTTP_PROBE_TIMEOUT
+
+
+def configure_timeout(timeout: float) -> None:
+    """Set a cap for HTTP probes in the current CLI invocation."""
+    global HTTP_PROBE_TIMEOUT
+    if timeout <= 0:
+        raise ValueError("timeout must be greater than zero")
+    HTTP_PROBE_TIMEOUT = min(timeout, MAX_HTTP_PROBE_TIMEOUT)
 
 
 def _check_dns(hostname: str, timeout: float = DEFAULT_TIMEOUT) -> tuple[bool, str]:
@@ -41,7 +50,6 @@ def _check_tcp(host: str, port: int, timeout: float = DEFAULT_TIMEOUT) -> tuple[
             sock.settimeout(timeout)
             result = sock.connect_ex((host, port))
         elapsed = time.time() - start
-        sock.close()
         if result == 0:
             return True, f"Connected ({elapsed:.2f}s)"
         return False, f"Connection refused ({elapsed:.2f}s)"

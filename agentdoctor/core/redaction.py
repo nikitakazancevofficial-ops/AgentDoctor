@@ -43,11 +43,19 @@ _SECRET_PATTERNS: list[tuple[re.Pattern[str], str]] = [
         r"glpat-[REDACTED]",
     ),
     (
+        re.compile(r"(xox[baprs]-[a-zA-Z0-9-]{10,})", re.IGNORECASE),
+        r"xox-[REDACTED]",
+    ),
+    (
         re.compile(r"(AKIA[0-9A-Z]{16})", re.IGNORECASE),
         r"AKIA-[REDACTED]",
     ),
     (
         re.compile(r"((?:Bearer|token)[\s:=]+)[a-zA-Z0-9_\-\.]{20,}", re.IGNORECASE),
+        r"\1[REDACTED]",
+    ),
+    (
+        re.compile(r"(?im)(authorization\s*:\s*)[^\r\n]+"),
         r"\1[REDACTED]",
     ),
     (
@@ -64,7 +72,7 @@ _SECRET_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     ),
     (
         re.compile(
-            r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----.*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----",
+            r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----.*?(?:-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\Z)",
             re.IGNORECASE | re.DOTALL,
         ),
         "[REDACTED PRIVATE KEY]",
@@ -150,9 +158,8 @@ def redact_url(url: str) -> str:
 
 
 def mask_token(token: str | None, visible_chars: int = 4) -> str:
-    """Mask a token showing only the first few characters."""
+    """Return a safe token marker without retaining any token characters."""
+    del visible_chars
     if not token:
         return "NOT SET"
-    if len(token) <= visible_chars:
-        return "[REDACTED]"
-    return token[:visible_chars] + "..." + token[-4:] if len(token) > 8 else token[:visible_chars] + "***"
+    return "[REDACTED]"
