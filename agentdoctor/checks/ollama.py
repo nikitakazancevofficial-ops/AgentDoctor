@@ -14,11 +14,10 @@ def _check_endpoint(host: str, port: int, timeout: float = SHORT_TIMEOUT) -> tup
     """Check TCP connectivity to an endpoint."""
     start = time.time()
     try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(timeout)
-        result = sock.connect_ex((host, port))
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(timeout)
+            result = sock.connect_ex((host, port))
         elapsed = time.time() - start
-        sock.close()
         if result == 0:
             return True, f"Connected ({elapsed:.2f}s)"
         return False, f"Connection refused ({elapsed:.2f}s)"

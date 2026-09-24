@@ -11,6 +11,7 @@ from agentdoctor.core.models import (
     HealthScore,
     SystemInfo,
 )
+from agentdoctor.core.redaction import sanitize_check_result
 
 
 def _has_unicode_support() -> bool:
@@ -88,13 +89,14 @@ def render_results(results: list[CheckResult], title: str) -> str:
     lines.append("-" * max(len(title), 30))
 
     for r in results:
+        r = sanitize_check_result(r)
         sym = _get_symbols()
         status_sym = {
             CheckStatus.PASS: f"[green]{sym['pass']}[/green]",
             CheckStatus.INFO: f"[cyan]{sym['info']}[/cyan]",
             CheckStatus.WARNING: f"[yellow]{sym['warn']}[/yellow]",
             CheckStatus.ERROR: f"[red]{sym['error']}[/red]",
-            CheckStatus.SKIPPED: "[blue]○[/blue]",
+            CheckStatus.SKIPPED: f"[blue]{sym['info']}[/blue]",
             CheckStatus.INTERNAL_ERROR: "[magenta]![/magenta]",
         }.get(r.status, "[white]?[/white]")
 
@@ -128,7 +130,10 @@ def render_health(score: HealthScore) -> str:
     if score.details:
         lines.append("\n  [bold]Issues:[/bold]")
         for detail in score.details[:10]:
-            lines.append(f"    - {detail}")
+            safe_detail = sanitize_check_result(
+                CheckResult(id="HEALTH", category="health", name="Health", summary=detail)
+            ).summary
+            lines.append(f"    - {safe_detail}")
 
     return "\n".join(lines)
 
@@ -141,6 +146,7 @@ def render_recommendations(results: list[CheckResult]) -> str:
 
     lines = ["\n[bold]Suggested actions:[/bold]"]
     for i, issue in enumerate(issues, 1):
+        issue = sanitize_check_result(issue)
         lines.append(f"\n  [bold]{i}. {issue.summary}[/bold]")
         if issue.details:
             lines.append(f"    {issue.details}")

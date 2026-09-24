@@ -1,6 +1,7 @@
 """Tests for MCP config parsing."""
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -84,35 +85,39 @@ class TestMCPValidation:
         from agentdoctor.checks.mcp import _validate_mcp_server
 
         config = {"command": "python", "args": ["server.py"]}
-        results = _validate_mcp_server("test-server", config)
-        # Should not produce errors for valid command
-        # May or may not find python depending on environment
-        assert len(results) >= 0
+        with patch("agentdoctor.checks.mcp.shutil.which", return_value="/usr/bin/python"):
+            results = _validate_mcp_server("test-server", config)
+        assert results == []
 
     def test_missing_command(self):
         from agentdoctor.checks.mcp import _validate_mcp_server
 
         config = {"command": "nonexistent-command-xyz123", "args": ["--arg"]}
-        results = _validate_mcp_server("test-server", config)
-        errors = [r for r in results if r.status == CheckStatus.ERROR]
-        assert len(errors) >= 0  # May not find it
+        with patch("agentdoctor.checks.mcp.shutil.which", return_value=None):
+            results = _validate_mcp_server("test-server", config)
+        assert len(results) == 1
+        assert results[0].id == "MCP_COMMAND_001"
+        assert results[0].status == CheckStatus.ERROR
+        assert "not found" in results[0].summary
 
     def test_url_server(self):
         from agentdoctor.checks.mcp import _validate_mcp_server
 
         config = {"url": "http://localhost:8081/mcp", "transport": "sse"}
         results = _validate_mcp_server("test-server", config)
-        # Should not produce errors for valid URL
-        assert len(results) >= 0
+        assert results == []
 
     def test_url_with_credentials(self):
         from agentdoctor.checks.mcp import _validate_mcp_server
 
         config = {"url": "https://user:password123@example.com/mcp"}
         results = _validate_mcp_server("test-server", config)
-        warnings = [r for r in results if r.status == CheckStatus.WARNING]
-        # Should detect credential in URL
-        assert len(warnings) >= 0  # May or may not depending on implementation
+        assert len(results) == 1
+        assert results[0].id == "MCP_SECRET_001"
+        assert results[0].status == CheckStatus.WARNING
+        public_fields = " ".join([results[0].summary, results[0].details, results[0].recommendation])
+        assert "password123" not in public_fields
+        assert "https://[REDACTED]:[REDACTED]@example.com/mcp" in public_fields
 
     def test_server_with_secret_env(self):
         from agentdoctor.checks.mcp import _validate_mcp_server
@@ -122,10 +127,12 @@ class TestMCPValidation:
             "args": ["server.js"],
             "env": {"OPENAI_API_KEY": "sk-proj-abcdefghijklmnopqrstuvwxyz1234567890", "SAFE_VAR": "${SAFE_VAR}"},
         }
-        results = _validate_mcp_server("test-server", config)
-        warnings = [r for r in results if r.status == CheckStatus.WARNING]
-        # Should detect secret in env
-        assert len(warnings) >= 0  # Depends on implementation
+        with patch("agentdoctor.checks.mcp.shutil.which", return_value="/usr/bin/node"):
+            results = _validate_mcp_server("test-server", config)
+        assert len(results) == 1
+        assert results[0].id == "MCP_SECRET_001"
+        assert results[0].status == CheckStatus.WARNING
+        assert "abcdefghijklmnopqrstuvwxyz1234567890" not in str(results[0])
 
 
 class TestSecretDetection:
@@ -140,7 +147,8 @@ class TestSecretDetection:
             }
         }
         results = _scan_dict(data)
-        assert len(results) >= 0  # Depends on implementation
+        assert results
+        assert all("abcdefghijklmnopqrstuvwxyz1234567890" not in result.details for result in results)
 
     def test_no_false_positives(self):
         from agentdoctor.checks.secrets import _scan_dict
@@ -151,8 +159,7 @@ class TestSecretDetection:
             "value": "sk-proj-abc",  # Too short to match
         }
         results = _scan_dict(data)
-        # Should not flag short values
-        assert len(results) >= 0
+        assert results == []
 
 
 class TestBinaryFileExclusion:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime
 
 from agentdoctor.core.models import CheckResult, HealthScore, SystemInfo
-from agentdoctor.core.redaction import redact_secret
+from agentdoctor.core.redaction import sanitize_check_result
 
 
 def render_markdown(
@@ -54,6 +54,7 @@ def render_markdown(
     all_issues = []
     for _category, category_results in results.items():
         for r in category_results:
+            r = sanitize_check_result(r)
             if r.is_error or r.is_warning:
                 all_issues.append(r)
 
@@ -74,9 +75,7 @@ def render_markdown(
                 ]
             )
             if issue.details:
-                # Redact secrets in details
-                redacted = redact_secret(issue.details)
-                lines.append(f"```\n{redacted}\n```")
+                lines.append(f"```\n{issue.details}\n```")
                 lines.append("")
             if issue.recommendation:
                 lines.append(f"**Recommendation:** {issue.recommendation}")
@@ -108,8 +107,8 @@ def render_markdown(
 
     for _category, category_results in results.items():
         for r in category_results:
-            summary = redact_secret(r.summary)
-            lines.append(f"| {r.id} | {r.category} | {r.name} | {r.status.value} | {summary} |")
+            safe = sanitize_check_result(r)
+            lines.append(f"| {safe.id} | {safe.category} | {safe.name} | {safe.status.value} | {safe.summary} |")
 
     lines.append("")
     return "\n".join(lines)

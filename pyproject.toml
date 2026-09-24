@@ -43,16 +43,18 @@ dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.10.0",
+    "build>=1.2.0",
+    "twine>=6.0.0",
 ]
 
 [project.scripts]
 agentdoctor = "agentdoctor.cli:app"
 
 [project.urls]
-"Homepage" = "https://github.com/agentdoctor/agentdoctor"
-"Repository" = "https://github.com/agentdoctor/agentdoctor"
-"Bug Tracker" = "https://github.com/agentdoctor/agentdoctor/issues"
-"Documentation" = "https://github.com/agentdoctor/agentdoctor#readme"
+"Homepage" = "https://github.com/nikitakazancevofficial-ops/AgentDoctor"
+"Repository" = "https://github.com/nikitakazancevofficial-ops/AgentDoctor"
+"Bug Tracker" = "https://github.com/nikitakazancevofficial-ops/AgentDoctor/issues"
+"Documentation" = "https://github.com/nikitakazancevofficial-ops/AgentDoctor#readme"
 
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]

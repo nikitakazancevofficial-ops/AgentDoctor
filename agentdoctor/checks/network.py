@@ -16,6 +16,9 @@ except ImportError:
     HAS_HTTPX = False
 
 
+HTTP_PROBE_TIMEOUT = min(DEFAULT_TIMEOUT, 3.0)
+
+
 def _check_dns(hostname: str, timeout: float = DEFAULT_TIMEOUT) -> tuple[bool, str]:
     """Check DNS resolution for a hostname."""
     start = time.time()
@@ -34,9 +37,9 @@ def _check_tcp(host: str, port: int, timeout: float = DEFAULT_TIMEOUT) -> tuple[
     """Check TCP connectivity to a host:port."""
     start = time.time()
     try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(timeout)
-        result = sock.connect_ex((host, port))
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(timeout)
+            result = sock.connect_ex((host, port))
         elapsed = time.time() - start
         sock.close()
         if result == 0:
@@ -97,17 +100,29 @@ def check_network() -> list[CheckResult]:
         for url, label in http_endpoints:
             try:
                 start = time.time()
-                with httpx.Client(verify=False, timeout=DEFAULT_TIMEOUT) as client:
+                with httpx.Client(timeout=HTTP_PROBE_TIMEOUT) as client:
                     resp = client.get(url)
                 elapsed = time.time() - start
+                if resp.status_code < 400:
+                    status = CheckStatus.PASS
+                    severity = CheckSeverity.LOW
+                    summary = f"{label} {resp.status_code} ({elapsed:.2f}s)"
+                elif resp.status_code < 500:
+                    status = CheckStatus.WARNING
+                    severity = CheckSeverity.LOW
+                    summary = f"{label} reachable but returned {resp.status_code} ({elapsed:.2f}s)"
+                else:
+                    status = CheckStatus.WARNING
+                    severity = CheckSeverity.MEDIUM
+                    summary = f"{label} server error {resp.status_code} ({elapsed:.2f}s)"
                 results.append(
                     CheckResult(
                         id=f"HTTP_{label.replace(' ', '_').upper()}",
                         category="network",
                         name=f"HTTP: {label}",
-                        status=CheckStatus.PASS,
-                        severity=CheckSeverity.LOW,
-                        summary=f"{label} {resp.status_code} ({elapsed:.2f}s)",
+                        status=status,
+                        severity=severity,
+                        summary=summary,
                         detected_value=str(resp.status_code),
                     )
                 )

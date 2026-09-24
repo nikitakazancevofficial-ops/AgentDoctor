@@ -137,14 +137,12 @@ AI coding tools (Claude Code, Codex CLI, Gemini CLI, Ollama, MCP servers, etc.) 
 ```bash
 git clone https://github.com/nikitakazancevofficial-ops/AgentDoctor.git
 cd AgentDoctor
-pip install -e ".[dev]"
+pip install .
 ```
 
 ### pip (coming soon — PyPI)
 
-```bash
-pip install agentdoctor
-```
+PyPI publication is planned for a future release.
 
 ## Quick Start
 
@@ -252,9 +250,9 @@ Diagnostic/debug text goes to stderr, never stdout.
 
 Reports written via `--output report.md` are sanitized:
 
-- Secrets in config files are **redacted** (replaced with `[REDACTED]`)
-- No API keys or tokens appear in output
-- No authentication credentials are logged
+- Detected credential-like values are redacted (replaced with `[REDACTED]`)
+- Public report renderers sanitize result fields before output
+- No authentication credentials are intentionally logged
 
 ## Privacy
 
@@ -266,9 +264,10 @@ AgentDoctor runs **entirely locally**. No telemetry, no data collection, no netw
 
 ## Security
 
-- All external commands run with **timeouts**
+- All built-in external commands run with **timeouts**
 - No `shell=True` by default
-- Secrets are **never** printed (even in debug mode)
+- MCP commands from configuration are statically validated and are not run by default
+- Potentially sensitive values are redacted from reports, including debug output
 - Config files are read **read-only**
 - No system modifications are made
 

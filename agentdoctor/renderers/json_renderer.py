@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Any
 
 from agentdoctor.core.models import CheckResult, HealthScore, SystemInfo
-from agentdoctor.core.redaction import redact_dict
+from agentdoctor.core.redaction import sanitize_check_result
 
 
 class _EnumEncoder(json.JSONEncoder):
@@ -61,6 +61,7 @@ def render_json(
     for category, category_results in results.items():
         results_out[category] = []
         for r in category_results:
+            r = sanitize_check_result(r)
             entry: dict[str, Any] = {
                 "id": r.id,
                 "category": r.category,
@@ -73,7 +74,7 @@ def render_json(
                 "expected_value": r.expected_value,
                 "recommendation": r.recommendation,
                 "commands": r.commands,
-                "metadata": redact_dict(r.metadata),
+                "metadata": r.metadata,
                 "duration_ms": r.duration_ms,
             }
             results_out[category].append(entry)

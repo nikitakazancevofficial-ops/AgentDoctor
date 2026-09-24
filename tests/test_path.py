@@ -8,7 +8,7 @@ class TestPathChecks:
         """Test that path check runs without error."""
         results = check_path()
         assert isinstance(results, list)
-        assert len(results) >= 0
+        assert results
 
     def test_path_check_returns_results(self):
         """Test that path check returns CheckResult objects."""

@@ -31,6 +31,7 @@ _SECRET_PATTERNS = [
     (re.compile(r"ghs_[a-zA-Z0-9]{36}"), "GitHub server token"),
     (re.compile(r"github_pat_[a-zA-Z0-9_]{20,}"), "GitHub PAT"),
 ]
+_MAX_CONFIG_FILES = 25
 
 
 def _scan_content(content: str, filepath: str) -> list[CheckResult]:
@@ -39,8 +40,7 @@ def _scan_content(content: str, filepath: str) -> list[CheckResult]:
     for pattern, label in _SECRET_PATTERNS:
         matches = pattern.findall(content)
         if matches:
-            for match in matches[:3]:  # Limit matches shown
-                matched_str = str(match)
+            for _match in matches[:3]:  # Limit findings without retaining secret values.
                 results.append(
                     CheckResult(
                         id="SECRET_DETECTED",
@@ -49,7 +49,7 @@ def _scan_content(content: str, filepath: str) -> list[CheckResult]:
                         status=CheckStatus.WARNING,
                         severity=CheckSeverity.HIGH,
                         summary=f"Potential {label} found in {filepath}",
-                        details=f"Pattern: {matched_str[:30]}...",
+                        details=f"Potential {label} pattern matched; the value was not retained.",
                         recommendation="Remove the secret from the config file and use environment variables instead",
                     )
                 )
@@ -62,6 +62,20 @@ def _scan_dict(data: dict[str, Any], path: str = "") -> list[CheckResult]:
     for key, value in data.items():
         current_path = f"{path}.{key}" if path else key
         if isinstance(value, str):
+            if re.search(r"(?:api[_-]?key|secret|token|password|auth)", key, re.IGNORECASE) and value:
+                results.append(
+                    CheckResult(
+                        id="SECRET_DETECTED",
+                        category="secrets",
+                        name=f"Secret in {current_path}",
+                        status=CheckStatus.WARNING,
+                        severity=CheckSeverity.HIGH,
+                        summary=f"Potential credential in config path '{current_path}'",
+                        details=f"Sensitive config field at '{current_path}'; the value was not retained.",
+                        recommendation="Use environment variables instead of hardcoding secrets",
+                    )
+                )
+                continue
             for pattern, label in _SECRET_PATTERNS:
                 if pattern.search(value):
                     results.append(
@@ -72,7 +86,7 @@ def _scan_dict(data: dict[str, Any], path: str = "") -> list[CheckResult]:
                             status=CheckStatus.WARNING,
                             severity=CheckSeverity.HIGH,
                             summary=f"Potential {label} in config path '{current_path}'",
-                            details=f"Value: {value[:20]}...",
+                            details=f"Potential {label} found at config path '{current_path}'; the value was not retained.",
                             recommendation="Use environment variables instead of hardcoding secrets",
                         )
                     )
@@ -121,7 +135,8 @@ def check_secrets() -> list[CheckResult]:
         if not scan_dir.exists():
             continue
         try:
-            for config_file in scan_dir.rglob("*.json"):
+            candidates = list(scan_dir.glob("*.json")) + list(scan_dir.glob("*/*.json"))
+            for config_file in candidates[:_MAX_CONFIG_FILES]:
                 if "node_modules" in str(config_file):
                     continue
                 try:

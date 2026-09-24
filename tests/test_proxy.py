@@ -40,8 +40,8 @@ class TestProxyWithEnv:
             os.environ.pop("NO_PROXY", None)
             results = check_proxy()
             # Should have a warning about NO_PROXY
-            warnings = [r for r in results if r.status == "WARNING"]
-            assert len(warnings) >= 0
+            warnings = [r for r in results if r.id == "PROXY_NO_MISSING"]
+            assert len(warnings) == 1
         finally:
             if original_http:
                 os.environ["HTTP_PROXY"] = original_http

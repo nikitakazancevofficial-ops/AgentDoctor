@@ -22,7 +22,8 @@ def register_check(
     def decorator(func: Callable[..., list[CheckResult]]) -> Callable[..., list[CheckResult]]:
         if category not in _REGISTRY:
             _REGISTRY[category] = []
-        _REGISTRY[category].append((func, meta))
+        if not any(existing is func for existing, _ in _REGISTRY[category]):
+            _REGISTRY[category].append((func, meta))
         return func
 
     return decorator

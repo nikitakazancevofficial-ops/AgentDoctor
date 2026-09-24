@@ -89,13 +89,28 @@ class TestJSONOutput:
         results, health, sys_info = self._create_test_results()
         output = render_json(results, health, sys_info, "0.1.0")
         parsed = json.loads(output)
-        # Check that the secret in metadata is redacted
+        # Every public CheckResult field is sanitized, not just metadata.
+        secret = "sk-proj-abcdefghijklmnopqrstuvwxyz1234567890"
+        results["system"].append(
+            CheckResult(
+                id="SECRET_TEST",
+                category="system",
+                name="Secret",
+                status=CheckStatus.WARNING,
+                severity=CheckSeverity.HIGH,
+                summary=f"token={secret}",
+                details=f"password={secret}",
+                detected_value=secret,
+                expected_value=secret,
+                recommendation=f"Bearer {secret}",
+                commands=[f"echo {secret}"],
+                metadata={"nested": [{"api_key": secret}]},
+            )
+        )
+        output = render_json(results, health, sys_info, "0.1.0")
+        parsed = json.loads(output)
         sys_results = parsed["results"]["system"]
-        for r in sys_results:
-            if r["id"] == "SYS_ERROR":
-                meta = r["metadata"]
-                # The api_key value should be redacted
-                assert "sk-proj-secret123" not in str(meta)
+        assert secret not in str(sys_results)
 
     def test_json_structure(self):
         results, health, sys_info = self._create_test_results()

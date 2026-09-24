@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
 
-from agentdoctor.core.models import SHORT_TIMEOUT, CheckResult, CheckSeverity, CheckStatus
+from agentdoctor.core.models import CheckResult, CheckSeverity, CheckStatus
 from agentdoctor.core.paths import get_config_dirs, get_home_dir
+from agentdoctor.core.redaction import redact_url
 from agentdoctor.core.registry import register_check
-from agentdoctor.core.runner import run_command_sync
 
 # Binary file extensions that should never be parsed as JSON
 _BINARY_EXTENSIONS = frozenset(
@@ -125,8 +126,16 @@ def _parse_mcp_config(path: Path) -> tuple[dict[str, Any] | None, str | None]:
         return data, None
     except json.JSONDecodeError as e:
         return None, f"Line {e.lineno}, column {e.colno}: {e.msg}"
-    except Exception as e:
-        return None, str(e)
+    except (OSError, PermissionError) as exc:
+        return None, str(exc)
+
+
+def _command_exists(command: str) -> bool:
+    """Check a configured command without ever executing untrusted config."""
+    command_path = Path(command).expanduser()
+    if command_path.is_absolute() or command_path.parent != Path("."):
+        return command_path.exists()
+    return shutil.which(command) is not None
 
 
 def _validate_mcp_server(server_name: str, server_config: dict[str, Any]) -> list[CheckResult]:
@@ -145,27 +154,21 @@ def _validate_mcp_server(server_name: str, server_config: dict[str, Any]) -> lis
 
         base_cmd = cmd_parts[0] if cmd_parts else ""
 
-        # Check if base command exists
-        r = run_command_sync([base_cmd, "--version"], timeout=SHORT_TIMEOUT)
-        if not r.success:
-            # Try just checking if it exists on PATH
-            import shutil
-
-            if not shutil.which(base_cmd):
-                results.append(
-                    CheckResult(
-                        id="MCP_COMMAND_001",
-                        category="mcp",
-                        name=f"MCP server: {server_name}",
-                        status=CheckStatus.ERROR,
-                        severity=CheckSeverity.HIGH,
-                        summary=f"MCP command '{base_cmd}' not found on PATH",
-                        details=f"Server '{server_name}' requires '{base_cmd}' but it is not available.",
-                        detected_value="not found",
-                        expected_value="command on PATH",
-                        recommendation=f"Install '{base_cmd}' or update the MCP configuration",
-                    )
+        if not base_cmd or not _command_exists(base_cmd):
+            results.append(
+                CheckResult(
+                    id="MCP_COMMAND_001",
+                    category="mcp",
+                    name=f"MCP server: {server_name}",
+                    status=CheckStatus.ERROR,
+                    severity=CheckSeverity.HIGH,
+                    summary=f"MCP command '{base_cmd or '[missing]'}' not found",
+                    details="The configured executable was checked statically and was not found.",
+                    detected_value="not found",
+                    expected_value="executable on PATH or an existing file path",
+                    recommendation="Install the executable or update the MCP configuration",
                 )
+            )
 
         # Check for secrets in env
         env = server_config.get("env", {})
@@ -202,7 +205,7 @@ def _validate_mcp_server(server_name: str, server_config: dict[str, Any]) -> lis
                     status=CheckStatus.WARNING,
                     severity=CheckSeverity.HIGH,
                     summary=f"Credentials in {server_name} URL",
-                    details=f"URL contains credentials: {url[:30]}...[REDACTED]",
+                    details=f"URL contains credentials: {redact_url(url)}",
                     recommendation="Use a different authentication method",
                 )
             )

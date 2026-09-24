@@ -1,4 +1,4 @@
-"""Tests for CLI."""
+"""Integration tests for the installed CLI dispatch contract."""
 
 from __future__ import annotations
 
@@ -6,121 +6,71 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
-from pathlib import Path
-
-import pytest
 
 
-def _run_cli(args: list[str]) -> subprocess.CompletedProcess:
-    """Run agentdoctor CLI with proper encoding."""
-    env = os.environ.copy()
+def _run_cli(args: list[str]) -> subprocess.CompletedProcess[str]:
+    """Execute the package entry point without relying on a shell alias."""
     return subprocess.run(
-        [sys.executable, "-m", "agentdoctor.cli", *args],
+        [sys.executable, "-m", "agentdoctor", *args],
         capture_output=True,
         text=True,
-        timeout=30,
-        env=env,
+        timeout=45,
+        env=os.environ.copy(),
     )
 
 
+def _expected_scan_exit(output: str) -> int:
+    summary = json.loads(output)["summary"]
+    return 2 if summary["errors"] else 1 if summary["warnings"] else 0
+
+
 class TestCLI:
-    def test_help(self):
+    def test_help(self) -> None:
         result = _run_cli(["--help"])
         assert result.returncode == 0
-        assert "AgentDoctor" in result.stdout or "agentdoctor" in result.stdout.lower()
+        assert "Diagnose broken AI coding environments" in result.stdout
 
-    def test_version(self):
+    def test_version(self) -> None:
         result = _run_cli(["--version"])
         assert result.returncode == 0
-        assert "0.1.0" in result.stdout
+        assert result.stdout.strip() == "AgentDoctor 0.1.0"
 
-    def test_doctor_help(self):
-        result = _run_cli(["doctor", "--help"])
-        # May fail on some Windows consoles due to encoding
-        assert result.returncode == 0 or "doctor" in result.stdout.lower() or "AgentDoctor" in result.stdout
-
-    def test_check_help(self):
-        result = _run_cli(["check", "--help"])
-        # May fail on some Windows consoles due to encoding
-        assert result.returncode == 0 or "check" in result.stdout.lower() or "AgentDoctor" in result.stdout
-
-    def test_explain_help(self):
-        result = _run_cli(["explain", "--help"])
-        # May fail on some Windows consoles due to encoding
-        assert result.returncode == 0 or "explain" in result.stdout.lower() or "AgentDoctor" in result.stdout
-
-
-class TestCLIJsonOutput:
-    def test_json_output(self):
+    def test_root_runs_full_scan(self) -> None:
         result = _run_cli(["--json"])
-        if result.returncode == 0:
-            parsed = json.loads(result.stdout)
-            assert "version" in parsed
-            assert "health_score" in parsed
-            assert "results" in parsed
+        payload = json.loads(result.stdout)
+        assert result.returncode == _expected_scan_exit(result.stdout)
+        assert "system" in payload["results"]
+        assert "network" in payload["results"]
 
-    def test_json_output_valid_json(self):
-        result = _run_cli(["--json"])
-        # Should be valid JSON regardless of exit code
-        try:
-            parsed = json.loads(result.stdout)
-            assert isinstance(parsed, dict)
-        except json.JSONDecodeError:
-            pytest.fail(f"JSON output is not valid: {result.stdout[:500]}")
+    def test_system_subcommand_only_runs_system_checks(self) -> None:
+        result = _run_cli(["check", "system", "--json"])
+        payload = json.loads(result.stdout)
+        assert result.returncode == _expected_scan_exit(result.stdout)
+        assert set(payload["results"]) == {"system"}
 
+    def test_tools_subcommand_runs_tool_diagnostics(self) -> None:
+        result = _run_cli(["check", "tools", "--json"])
+        payload = json.loads(result.stdout)
+        assert result.returncode == _expected_scan_exit(result.stdout)
+        assert "ai_tools" in payload["results"]
 
-class TestCICommand:
-    def test_ci_mode(self):
-        result = _run_cli(["--ci"])
-        # CI mode may exit with code 2 (errors found), but should produce output
-        output = result.stdout + result.stderr
-        assert "Health:" in output or "health" in output.lower() or "PASSED" in output or "passed" in output.lower()
-
-
-class TestExplainCommand:
-    def test_explain_known_issue(self):
+    def test_explain_known_issue(self) -> None:
         result = _run_cli(["explain", "NET_PROXY_001"])
-        # Explain should work (may or may not show content depending on terminal)
-        assert result.returncode == 0 or result.returncode == 1
+        assert result.returncode == 0
+        assert "NET_PROXY_001" in result.stdout
 
-    def test_explain_unknown_issue(self):
-        result = _run_cli(["explain", "UNKNOWN_ISSUE_999"])
-        # Unknown issue should fail or show available issues
-        assert result.returncode != 0 or "Available" in result.stdout or "available" in result.stdout.lower()
-
-
-class TestSelfCheck:
-    def test_self_check(self):
+    def test_self_check(self) -> None:
         result = _run_cli(["self-check"])
-        # Self-check should work (may fail on some Windows consoles due to encoding)
-        assert (
-            result.returncode == 0 or "AgentDoctor" in result.stdout or "ERR" in result.stdout or "OK" in result.stdout
-        )
+        assert result.returncode == 0
+        assert "AgentDoctor Self-Check" in result.stdout
 
+    def test_doctor_alias_json(self) -> None:
+        result = _run_cli(["doctor", "--json"])
+        payload = json.loads(result.stdout)
+        assert result.returncode == _expected_scan_exit(result.stdout)
+        assert "system" in payload["results"]
 
-class TestOutputFile:
-    def test_output_json_file(self):
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
-            fpath = f.name
-        try:
-            _run_cli(["--json", "--output", fpath])
-            content = Path(fpath).read_text()
-            if content.strip():
-                parsed = json.loads(content)
-                assert "version" in parsed
-        finally:
-            if os.path.exists(fpath):
-                os.unlink(fpath)
-
-    def test_output_md_file(self):
-        with tempfile.NamedTemporaryFile(suffix=".md", delete=False) as f:
-            fpath = f.name
-        try:
-            _run_cli(["--output", fpath])
-            content = Path(fpath).read_text()
-            if content.strip():
-                assert "# AgentDoctor Report" in content
-        finally:
-            if os.path.exists(fpath):
-                os.unlink(fpath)
+    def test_plain_default_command_dispatches_to_scan(self) -> None:
+        result = _run_cli([])
+        assert result.returncode in {0, 1, 2}
+        assert "Scanning your AI development environment" in result.stdout

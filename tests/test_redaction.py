@@ -81,7 +81,14 @@ class TestRedactSecret:
     def test_redact_private_key_header(self):
         text = "-----BEGIN RSA PRIVATE KEY-----"
         result = redact_secret(text)
-        assert result == text  # Should not redact the header itself
+        assert result == text  # A header alone is not a private-key block.
+
+    def test_redact_entire_private_key_block(self):
+        body = "A" * 64
+        text = f"-----BEGIN PRIVATE KEY-----\n{body}\n-----END PRIVATE KEY-----"
+        result = redact_secret(text)
+        assert body not in result
+        assert result == "[REDACTED PRIVATE KEY]"
 
 
 class TestRedactDict:
@@ -101,6 +108,11 @@ class TestRedactDict:
         result = redact_dict(d)
         for item in result["keys"]:
             assert "abcdefghijklmnopqrstuvwxyz" not in item
+
+    def test_nested_collections_and_sensitive_key(self):
+        result = redact_dict({"servers": [{"token": "unpatterned-secret"}], "pair": ({"password": "value"},)})
+        assert result["servers"][0]["token"] == "[REDACTED]"
+        assert result["pair"][0]["password"] == "[REDACTED]"
 
 
 class TestRedactURL:
